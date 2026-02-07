@@ -1,0 +1,110 @@
+From: Keenetic SDK Builder <developers@keenetic.com>
+Subject: [PATCH] keenetic: rename module to wireguard for drop-in replacement
+
+Keenetic routers ship a WireGuard kernel module (wireguard.ko) based on
+WireGuard 1.0.20200623 with AmneziaWG v1.x obfuscation grafted on.
+The Keenetic UI (NDMS) communicates with the module via Generic Netlink
+family "wireguard" and creates interfaces of rtnl type "wireguard".
+
+To allow AmneziaWG v2.0 to serve as a drop-in replacement:
+- Change WG_GENL_NAME from "amneziawg" to "wireguard"
+- Rename Kbuild target from amneziawg.o to wireguard.o
+- Rename all amneziawg-y object lists to wireguard-y
+- Update MODULE_DESCRIPTION to match expected modinfo
+
+This allows Keenetic UI to create and manage basic WireGuard interfaces
+while AWG v2.0 obfuscation parameters (S3/S4, I1-I5) can be configured
+separately via the awg userspace tool.
+
+Signed-off-by: Keenetic SDK Builder <developers@keenetic.com>
+---
+ src/Kbuild                  | 4 ++--
+ src/compat/Kbuild.include   | 8 ++++----
+ src/crypto/Kbuild.include   | 2 +-
+ src/main.c                  | 2 +-
+ src/uapi/wireguard.h        | 2 +-
+ 5 files changed, 9 insertions(+), 9 deletions(-)
+
+--- a/src/uapi/wireguard.h
++++ b/src/uapi/wireguard.h
+@@ -157,7 +157,7 @@
+ #ifndef _WG_UAPI_WIREGUARD_H
+ #define _WG_UAPI_WIREGUARD_H
+
+-#define WG_GENL_NAME "amneziawg"
+-#define WG_GENL_VERSION 2
++#define WG_GENL_NAME "wireguard"
++#define WG_GENL_VERSION 1
+
+ #define WG_KEY_LEN 32
+--- a/src/Kbuild
++++ b/src/Kbuild
+@@ -8,7 +8,7 @@
+ ccflags-$(if $(WIREGUARD_VERSION),y,) += -D'WIREGUARD_VERSION="$(WIREGUARD_VERSION)"'
+ ccflags-$(if $(OMIT_ENDPOINTS),y,) += -D'OMIT_ENDPOINTS="$(OMIT_ENDPOINTS)"'
+
+-amneziawg-y := main.o noise.o device.o peer.o timers.o queueing.o send.o receive.o socket.o peerlookup.o allowedips.o ratelimiter.o cookie.o netlink.o junk.o magic_header.o
++wireguard-y := main.o noise.o device.o peer.o timers.o queueing.o send.o receive.o socket.o peerlookup.o allowedips.o ratelimiter.o cookie.o netlink.o junk.o magic_header.o
+
+ ifeq ($(shell [ $(VERSION) -lt 6 -o \( $(VERSION) -eq 6 -a $(PATCHLEVEL) -lt 1 \) ] && echo y),y)
+ 	kbuild-dir := $(if $(filter /%,$(src)),$(src),$(srctree)/$(src))
+@@ -21,4 +21,4 @@
+ endif
+ include $(src)/compat/Kbuild.include
+
+-obj-$(if $(KBUILD_EXTMOD),m,$(CONFIG_AMNEZIAWG)) := amneziawg.o
++obj-$(if $(KBUILD_EXTMOD),m,$(CONFIG_AMNEZIAWG)) := wireguard.o
+--- a/src/crypto/Kbuild.include
++++ b/src/crypto/Kbuild.include
+@@ -47,7 +47,7 @@
+ # Old kernels don't set this, which causes trouble.
+ .SECONDARY:
+
+-amneziawg-y += $(addprefix crypto/zinc/,$(zinc-y))
++wireguard-y += $(addprefix crypto/zinc/,$(zinc-y))
+ ccflags-y += -I$(kbuild-dir)/crypto/include
+ ccflags-$(CONFIG_ZINC_ARCH_X86_64) += -DCONFIG_ZINC_ARCH_X86_64
+ ccflags-$(CONFIG_ZINC_ARCH_ARM) += -DCONFIG_ZINC_ARCH_ARM
+--- a/src/compat/Kbuild.include
++++ b/src/compat/Kbuild.include
+@@ -16,12 +16,12 @@
+
+ ifeq ($(wildcard $(srctree)/include/linux/siphash.h),)
+ ccflags-y += -I$(kbuild-dir)/compat/siphash/include
+-amneziawg-y += compat/siphash/siphash.o
++wireguard-y += compat/siphash/siphash.o
+ endif
+
+ ifeq ($(wildcard $(srctree)/include/net/dst_cache.h),)
+ ccflags-y += -I$(kbuild-dir)/compat/dst_cache/include
+-amneziawg-y += compat/dst_cache/dst_cache.o
++wireguard-y += compat/dst_cache/dst_cache.o
+ endif
+
+ ifeq ($(wildcard $(srctree)/arch/x86/include/asm/intel-family.h)$(CONFIG_X86),y)
+@@ -42,12 +42,12 @@
+
+ ifeq ($(wildcard $(srctree)/include/net/udp_tunnel.h),)
+ ccflags-y += -I$(kbuild-dir)/compat/udp_tunnel/include
+-amneziawg-y += compat/udp_tunnel/udp_tunnel.o
++wireguard-y += compat/udp_tunnel/udp_tunnel.o
+ endif
+
+ ifeq ($(shell grep -s -F "int crypto_memneq" "$(srctree)/include/crypto/algapi.h")$(shell grep -s -F "int crypto_memneq" "$(srctree)/include/crypto/utils.h"),)
+ ccflags-y += -include $(kbuild-dir)/compat/memneq/include.h
+-amneziawg-y += compat/memneq/memneq.o
++wireguard-y += compat/memneq/memneq.o
+ endif
+
+ ifeq ($(shell grep -s -F "addr_gen_mode" "$(srctree)/include/linux/ipv6.h"),)
+--- a/src/main.c
++++ b/src/main.c
+@@ -83,7 +83,7 @@
+ module_init(wg_mod_init);
+ module_exit(wg_mod_exit);
+ MODULE_LICENSE("GPL v2");
+-MODULE_DESCRIPTION("AmneziaWG secure network tunnel");
++MODULE_DESCRIPTION("WireGuard secure network tunnel");
+ MODULE_AUTHOR("Jason A. Donenfeld <Jason@zx2c4.com>, AmneziaVPN <admin@amnezia.org>");
+ MODULE_VERSION(WIREGUARD_VERSION);
+ MODULE_ALIAS_RTNL_LINK(KBUILD_MODNAME);

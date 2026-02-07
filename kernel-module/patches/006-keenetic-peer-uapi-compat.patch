@@ -1,0 +1,40 @@
+From: Keenetic SDK Builder <developers@keenetic.com>
+Subject: [PATCH] uapi/netlink: add Keenetic peer FWMARK/CLIENT_ID for UAPI compat
+
+Keenetic NDMS sends WGPEER_A_FWMARK (NLA_U32) at position 11 and
+WGPEER_A_CLIENT_ID (NLA_U32) at position 12 when configuring peers
+via SET_DEVICE.
+
+AWG v2.0 has WGPEER_A_ADVANCED_SECURITY (NLA_FLAG) at position 11.
+When NDMS sends 4-byte NLA_U32 at position 11, kernel nla_validate
+checks NLA_FLAG policy: attrlen(4) > 0 returns -ERANGE (34).
+
+Fix by inserting FWMARK and CLIENT_ID before ADVANCED_SECURITY in the
+peer enum, shifting it from position 11 to 13. This matches the
+Keenetic v1 UAPI layout. Also add corresponding peer_policy entries.
+
+Signed-off-by: Keenetic SDK Builder <developers@keenetic.com>
+---
+ src/uapi/wireguard.h | 2 ++
+ src/netlink.c        | 2 ++
+ 2 files changed, 4 insertions(+)
+
+--- a/src/uapi/wireguard.h
++++ b/src/uapi/wireguard.h
+@@ -228,5 +228,7 @@
+ 	WGPEER_A_ALLOWEDIPS,
+ 	WGPEER_A_PROTOCOL_VERSION,
++	WGPEER_A_FWMARK,
++	WGPEER_A_CLIENT_ID,
+ 	WGPEER_A_ADVANCED_SECURITY,
+ 	__WGPEER_A_LAST
+ };
+--- a/src/netlink.c
++++ b/src/netlink.c
+@@ -73,4 +73,6 @@
+ 	[WGPEER_A_ALLOWEDIPS]				= { .type = NLA_NESTED },
+ 	[WGPEER_A_PROTOCOL_VERSION]			= { .type = NLA_U32 },
++	[WGPEER_A_FWMARK]				= { .type = NLA_U32 },
++	[WGPEER_A_CLIENT_ID]				= { .type = NLA_U32 },
+ 	[WGPEER_A_ADVANCED_SECURITY]    		= { .type = NLA_FLAG }
+ };

@@ -1,0 +1,35 @@
+From: Keenetic SDK Builder <developers@keenetic.com>
+Subject: [PATCH] ipc-linux: always send H1-H4 as NLA_NUL_STRING
+
+Our patched kernel module reports WG_GENL_VERSION=1 (for Keenetic NDMS
+compatibility) but uses NLA_NUL_STRING policy for H1-H4 (AWG 2.0 format).
+
+The version-based dispatch in put_magic_header_attr() sends H1-H4 as
+NLA_U32 when version < 2, which fails kernel NLA_NUL_STRING validation
+with -EINVAL. The strtoul() also silently truncates range values like
+"1040806422-1118000961" to just the first number.
+
+Fix by always sending H1-H4 as NUL-terminated strings regardless of
+the genl version reported by the kernel.
+
+Signed-off-by: Keenetic SDK Builder <developers@keenetic.com>
+---
+ src/ipc-linux.h | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
+
+--- a/src/ipc-linux.h
++++ b/src/ipc-linux.h
+@@ -26,12 +26,7 @@
+
+ void put_magic_header_attr(uint8_t version, struct nlmsghdr *nlh, int attr_name, char *header_field)
+ {
+-	if (version >= 2) {
+-		mnl_attr_put_strz(nlh, attr_name, header_field);
+-	} else {
+-		uint32_t magic_header = strtoul(header_field, NULL, 10);
+-		mnl_attr_put_u32(nlh, attr_name, magic_header);
+-	}
++	mnl_attr_put_strz(nlh, attr_name, header_field);
+ }
+
+ #define GET_MAGIC_HEADER(attr, magic_header, attr_name)\

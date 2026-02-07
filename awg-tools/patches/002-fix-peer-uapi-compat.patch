@@ -1,0 +1,31 @@
+From: Keenetic SDK Builder <developers@keenetic.com>
+Subject: [PATCH] uapi: add FWMARK/CLIENT_ID to peer enum for Keenetic compat
+
+Keenetic NDMS sends WGPEER_A_FWMARK (NLA_U32) at position 11 and
+WGPEER_A_CLIENT_ID (NLA_U32) at position 12 in the peer attribute enum.
+
+Our patched kernel module (patch 006) added these entries to the peer
+enum, shifting ADVANCED_SECURITY (AWG in tools) from position 11 to 13.
+
+The tools must match the kernel UAPI: if awg sends WGPEER_A_AWG at
+position 11, the kernel interprets it as FWMARK (NLA_U32) and rejects
+the 0-byte NLA_FLAG payload with -ERANGE.
+
+Add FWMARK and CLIENT_ID entries to the peer enum, shifting AWG to
+position 13 to match the kernel.
+
+Signed-off-by: Keenetic SDK Builder <developers@keenetic.com>
+---
+ src/uapi/linux/linux/wireguard.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+--- a/src/uapi/linux/linux/wireguard.h
++++ b/src/uapi/linux/linux/wireguard.h
+@@ -223,6 +223,8 @@
+ 	WGPEER_A_ALLOWEDIPS,
+ 	WGPEER_A_PROTOCOL_VERSION,
++	WGPEER_A_FWMARK,
++	WGPEER_A_CLIENT_ID,
+ 	WGPEER_A_AWG,
+ 	__WGPEER_A_LAST
+ };
